@@ -1,6 +1,24 @@
 import React from "react";
+
+import Link from "next/link";
+
+// Third Party
 import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3";
+
+// UI
 import FilePreview from "@/components/FilePreview";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+
+// Icons
+import { Text } from "lucide-react";
 
 interface FileMetadata {
 	contentType: string;
@@ -19,12 +37,22 @@ const s3Client = new S3Client({
 
 async function getFileMetadata(key: string): Promise<FileMetadata | null> {
 	try {
+		// Extract just the filename from the URL parameter
+		const filename = key.replace(/^f/, ""); // Remove the 'f' prefix if present
+
+		// Construct the S3 key with the proper folder
+		const s3Key = `${process.env.S3_MAIN_FOLDER || "images"}/${filename}`;
+
+		console.log("S3 Key:", s3Key);
+
 		const command = new HeadObjectCommand({
 			Bucket: process.env.S3_BUCKET_NAME || "soe-storage",
-			Key: key,
+			Key: s3Key,
 		});
 
 		const response = await s3Client.send(command);
+
+		console.log(response, "Response");
 
 		return {
 			contentType: response.ContentType || "application/octet-stream",
@@ -38,53 +66,125 @@ async function getFileMetadata(key: string): Promise<FileMetadata | null> {
 	}
 }
 
-const Preview = async ({
+// Format the date in a human-readable format
+function formatDate(date: Date): string {
+	return new Intl.DateTimeFormat("en-US", {
+		dateStyle: "medium",
+		timeStyle: "short",
+	}).format(date);
+}
+
+// Function to get human readable file size
+function formatFileSize(bytes: number): string {
+	if (bytes === 0) return "0 Bytes";
+	const k = 1024;
+	const sizes = ["Bytes", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${Number.parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+}
+
+export default async function Preview({
 	params,
 }: {
-	params: { key: string };
-}) => {
-	const key = decodeURIComponent(params.key);
+	params: Promise<{ key: string }>;
+}) {
+	const keyPrams = (await params).key;
+
+	const key = decodeURIComponent(keyPrams);
+
+	// Extract just the filename, removing any 'f' prefix
+	const filename = key.replace(/^f/, "");
+
 	const metadata = await getFileMetadata(key);
 
-	// Construct the full S3 URL
+	// Construct the full S3 URL with the correct path
 	const baseUrl = `https://${process.env.S3_BUCKET_NAME || "soe-storage"}.s3.${process.env.AWS_REGION || "ap-southeast-1"}.amazonaws.com`;
-	const fileUrl = `${baseUrl}/${key}`;
+	const s3Folder = process.env.S3_MAIN_FOLDER || "images";
+	const fileUrl = `${baseUrl}/${s3Folder}/${filename}`;
 
 	return (
-		<div className="container mx-auto p-4">
-			<h1 className="text-xl font-semibold mb-4">File Preview</h1>
-			<div className="border border-gray-200 rounded-lg overflow-hidden">
-				<FilePreview fileKey={key} fileUrl={fileUrl} metadata={metadata} />
-			</div>
+		<div className="container mx-auto space-y-4 px-4 py-12 max-w-5xl">
+			{/* <Breadcrumb>
+				<BreadcrumbList>
+					<BreadcrumbItem>
+						<BreadcrumbLink>
+							<Link href="/">Home</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbLink>
+							<Link href="/components">Components</Link>
+						</BreadcrumbLink>
+					</BreadcrumbItem>
+					<BreadcrumbSeparator />
+					<BreadcrumbItem>
+						<BreadcrumbPage>Breadcrumb</BreadcrumbPage>
+					</BreadcrumbItem>
+				</BreadcrumbList>
+			</Breadcrumb> */}
 
-			{metadata && (
-				<div className="mt-4 p-4 bg-gray-50 rounded-lg">
-					<h2 className="text-lg font-medium mb-2">File Metadata</h2>
-					<dl className="grid grid-cols-2 gap-2 text-sm">
-						<dt className="font-medium">Content Type:</dt>
-						<dd>{metadata.contentType}</dd>
-
-						<dt className="font-medium">Size:</dt>
-						<dd>{(metadata.contentLength / 1024).toFixed(2)} KB</dd>
-
-						{metadata.lastModified && (
-							<>
-								<dt className="font-medium">Last Modified:</dt>
-								<dd>{metadata.lastModified.toLocaleString()}</dd>
-							</>
-						)}
-
-						{metadata.etag && (
-							<>
-								<dt className="font-medium">ETag:</dt>
-								<dd className="truncate">{metadata.etag}</dd>
-							</>
-						)}
-					</dl>
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+				<div className="md:col-span-2">
+					<FilePreview fileKey={key} fileUrl={fileUrl} metadata={metadata} />
 				</div>
-			)}
+
+				{metadata && (
+					<div className="md:col-span-1">
+						<Card>
+							<CardHeader>
+								<CardTitle className="text-lg font-semibold flex items-center">
+									<Text className="mr-2" /> File Details
+								</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<dl className="space-y-4 text-sm">
+									<div>
+										<dt className="font-medium text-muted-foreground mb-1">
+											Filename
+										</dt>
+										<dd className="break-all">{filename}</dd>
+									</div>
+
+									<div>
+										<dt className="font-medium text-muted-foreground mb-1">
+											Content Type
+										</dt>
+										<dd>{metadata.contentType}</dd>
+									</div>
+
+									<div>
+										<dt className="font-medium text-muted-foreground mb-1">
+											Size
+										</dt>
+										<dd>{formatFileSize(metadata.contentLength)}</dd>
+									</div>
+
+									{metadata.lastModified && (
+										<div>
+											<dt className="font-medium text-muted-foreground mb-1">
+												Last Modified
+											</dt>
+											<dd>{formatDate(metadata.lastModified)}</dd>
+										</div>
+									)}
+
+									{metadata.etag && (
+										<div>
+											<dt className="font-medium text-muted-foreground mb-1">
+												ETag
+											</dt>
+											<dd className="font-mono text-xs truncate">
+												{metadata.etag}
+											</dd>
+										</div>
+									)}
+								</dl>
+							</CardContent>
+						</Card>
+					</div>
+				)}
+			</div>
 		</div>
 	);
-};
-
-export default Preview;
+}

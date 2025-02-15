@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
 	scripts: {
 		domains: ["unpkg.com"],
 	},
+	experimental: {
+		turbo: {
+			resolveAlias: {
+				canvas: "./empty-module.ts",
+			},
+		},
+	},
+	swcMinify: false,
 };
 
 export default nextConfig;
