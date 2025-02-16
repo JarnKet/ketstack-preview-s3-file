@@ -124,6 +124,25 @@ export default async function Preview({
 				</BreadcrumbList>
 			</Breadcrumb> */}
 
+			<header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+				<div className="container flex h-14 max-w-screen-2xl items-center">
+					<div className="flex gap-4 items-center mr-4">
+						<div className="relative h-8 w-24 flex items-center transition-transform hover:scale-105">
+							<img
+								src={process.env.BANNER_LOGO}
+								alt="logo"
+								className="object-contain"
+							/>
+						</div>
+						<div className="hidden md:flex">
+							<h1 className="scroll-m-20 text-xl font-semibold tracking-tight transition-colors first:mt-0">
+								{process.env.BANNER_TEXT || "YOUR_BANNER_TEXT"}
+							</h1>
+						</div>
+					</div>
+				</div>
+			</header>
+
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<div className="md:col-span-2">
 					<FilePreview fileKey={key} fileUrl={fileUrl} metadata={metadata} />
